@@ -8,18 +8,12 @@
         <el-breadcrumb-item class="text-xl">商品列表</el-breadcrumb-item>
       </el-breadcrumb>
       <!-- 选择器 -->
-      <div class="my-8">
+      <div v-if="splist.length" class="my-8">
         <span class="mx-5">商品筛选</span>
-        <el-cascader
-         v-model="value"
-          :options="splist"
-           :props="{ value: 'id', label: 'name', expandTrigger: 'hover', checkStrictly: true }"
-           clearable
-           class="w-80" 
-           @change="getCheckedNodesid"></el-cascader>
+        <el-cascader ref="cascader" v-model="value" :options="splist" :props="{ value: 'id', label: 'name', expandTrigger: 'hover', checkStrictly: true }" clearable class="w-80" @change="getselKnowledgeList"></el-cascader>
       </div>
       <!-- 表格 -->
-      <el-table :data="spcategory" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all :tree-props="{ children: 'category', hasChildren: 'hasChildren' }" >
+      <el-table :data="spcategory" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all :tree-props="{ children: 'category', hasChildren: 'hasChildren' }">
         <el-table-column v-slot="scope" label="商品图片" sortable align="center">
           <img :src="scope.row.image" alt="" />
         </el-table-column>
@@ -34,7 +28,8 @@
             { text: '是', value: 'true' },
             { text: '否', value: 'false' },
           ]"
-          align="center">
+          align="center"
+        >
           <template slot-scope="scope">
             <el-tag v-if="scope.row.preorderable" type="primary">是</el-tag>
             <el-tag v-else type="success">否</el-tag>
@@ -48,7 +43,8 @@
             { text: '是', value: 'true' },
             { text: '否', value: 'false' },
           ]"
-          align="center">
+          align="center"
+        >
           <template slot-scope="scope">
             <el-tag v-if="scope.row.require_advance" type="primary">是</el-tag>
             <el-tag v-else type="success">否</el-tag>
@@ -56,7 +52,7 @@
         </el-table-column>
         <el-table-column prop="advance" label="预订按金" sortable align="center"> </el-table-column>
       </el-table>
-      <p class="font-mono text-gray-800 align-baseline float-right mr-4 mb-4">共 {{total}} 条数据</p>
+      <p class="font-mono text-gray-800 align-baseline float-right mr-4 mb-4">共 {{ total }} 条数据</p>
     </el-card>
   </div>
 </template>
@@ -66,7 +62,7 @@ export default {
     const res = await $axios.get('/api/api/categories')
     // eslint-disable-next-line no-irregular-whitespace, no-template-curly-in-string
     const result = await $axios.get('/api/api/products?category=')
-    return { splist: res.data, spcategory: result.data , total:result.data.length}
+    return { splist: res.data, spcategory: result.data, total: result.data.length }
   },
   data() {
     return {
@@ -76,7 +72,9 @@ export default {
       value: '',
       params: '22',
       id: '',
-      total:'',
+      total: '',
+      key: [],
+      datalist: [],
     }
   },
   mounted() {
@@ -112,17 +110,38 @@ export default {
       }
       return data
     },
-    // 筛选id
-    getCheckedNodesid() {
-      this.getnewlist(this.value.slice(-1))
+    // 获取父id下所有id
+    getAllId(keys, dataList) {
+      if (dataList && dataList.length) {
+        for (let i = 0; i < dataList.length; i++) {
+          keys.push(dataList[i].id)
+          if (dataList[i].children !== undefined) {
+            keys = this.getAllId(keys, dataList[i].children)
+          }
+        }
+      }
+      return keys
     },
-    // 获取新数据
-    async getnewlist(id) {
-      const result = await this.$axios.get('/api/api/products?category=' + id)
-      this.spcategory = result.data
-      this.total=result.data.length
+    // 获取父id以下所有id的商品
+    getselKnowledgeList(val) {
+      if (val.length !== 0) {
+        const nodesObj = this.$refs.cascader.getCheckedNodes()
+        this.key = []
+        this.getAllId(this.key, nodesObj[0].data.children)
+        this.key.push(nodesObj[0].data.id)
+        this.getnewlist(this.key)
+      }
     },
 
+    // 获取新数据
+    async getnewlist(datalist) {
+      this.spcategory = []
+      for (let i = 0; i < datalist.length; i++) {
+        const result = await this.$axios.get('/api/api/products?category=' + datalist[i])
+        this.spcategory = [...this.spcategory, ...result.data]
+        this.total = this.spcategory.length
+      }
+    },
   },
 }
 </script>
